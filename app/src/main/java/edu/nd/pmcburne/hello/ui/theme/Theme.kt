@@ -8,19 +8,25 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import edu.nd.pmcburne.hello.ui.theme.DeepGreen
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = LightRed,
+    secondary = Red,
+    tertiary = DeepRed,
+    background = DeepRed,
+    primaryContainer = LightRed,
+    onPrimaryContainer = DeepRed
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = LightGreen,
+    secondary = Green,
+    tertiary = DeepGreen,
+    background = DeepGreen,
+    primaryContainer = LightGreen,
+    onPrimaryContainer = DeepGreen
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
@@ -36,7 +42,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

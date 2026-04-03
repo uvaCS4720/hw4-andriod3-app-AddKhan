@@ -7,28 +7,25 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.*
+import edu.nd.pmcburne.hello.data.*
+import edu.nd.pmcburne.hello.ui.theme.*
 import edu.nd.pmcburne.hello.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -36,6 +33,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        viewModel.init(this)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -48,64 +46,139 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainScreen(
-    viewModel: MainViewModel,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
+fun MainScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
+
+    Column (modifier = modifier) {
+        // title
         Text(
-            "Welcome to the Counter App!"
+            text = "Campus Map!",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp),
+            fontSize = 22.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
-        Spacer(modifier = modifier.height(16.dp))
-        Counter(viewModel)
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        TagDropdown(
+            tags = viewModel.tags,
+            selected = viewModel.selectedTag,
+            onSelected = { viewModel.onTagSelected(it) }
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        MapView(viewModel.locations)
     }
 }
 
 @Composable
-@Preview(showBackground = true)
-fun PreviewMainScreen() {
-    MyApplicationTheme {
-        MainScreen(viewModel = MainViewModel())
-    }
-}
-
-@Composable
-fun Counter(
-    viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+fun TagDropdown(
+    tags: List<String>,
+    selected: String,
+    onSelected: (String) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val counterValue = uiState.counterValue
-    Row {
-        Text("Value: $counterValue")
-        Button( // increment button
-            onClick = { viewModel.incrementCounter() },
-            modifier = modifier
-        ) { Text("+") }
-        Button( //decrement button
-            onClick = { viewModel.decrementCounter() },
-            enabled = viewModel.isDecrementEnabled,
-            modifier = modifier
+    var expanded by remember { mutableStateOf(false) }
+
+    val sortedTags = tags.sorted()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = 6.dp,
+            shadowElevation = 6.dp,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier
+                .clickable { expanded = true }
         ) {
-            Text("-")
-        }
-        Button( // reset button
-            onClick = { viewModel.incrementCounter() },
-            enabled = viewModel.isResetEnabled,
-            modifier = modifier
-        ) {
-            Text("Reset")
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = selected.ifEmpty { "core" },
+                    color = DeepGreen,
+                    fontSize = 16.sp
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    "▼",
+                    color = DeepGreen
+                )
+            }
         }
 
+        DropdownMenu(
+            expanded = expanded,
+            //containerColor = LightGreen,
+            onDismissRequest = { expanded = false }
+        ) {
+            sortedTags.forEach { tag ->
+                DropdownMenuItem(
+                    text = { Text(
+                        tag,
+                        color = DeepGreen
+                        ) },
+                    onClick = {
+                        onSelected(tag)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 
-
-@Preview(name = "Light Mode Counter", showBackground = true)
-@Preview(name = "Dark Mode Counter", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-fun CounterPreview() {
-    MyApplicationTheme {
-        Counter(viewModel = MainViewModel(0))
+fun MapView(locations: List<LocationEntity>) {
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            LatLng(38.03474, -78.50820), 15f
+        )
+    }
+
+    GoogleMap(
+        modifier = Modifier.fillMaxSize(),
+        cameraPositionState = cameraPositionState
+    ) {
+        locations.forEach { loc ->
+            MarkerInfoWindow(
+                state = MarkerState(
+                    position = LatLng(loc.latitude, loc.longitude)
+                ),
+                title = loc.name,
+                snippet = loc.description
+            ){
+                Column(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(12.dp)
+                        .width(200.dp)
+                ) {
+                    Text(
+                        text = loc.name,
+                        fontSize = 16.sp,
+                        color = DeepGreen
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = loc.description,
+                        fontSize = 14.sp,
+                        color = DeepGreen
+                    )
+                }
+            }
+        }
     }
 }
