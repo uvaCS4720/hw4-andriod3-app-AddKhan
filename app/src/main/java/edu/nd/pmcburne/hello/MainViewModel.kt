@@ -1,41 +1,65 @@
 package edu.nd.pmcburne.hello
 
+import android.content.Context
+import android.util.Log
+import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import androidx.lifecycle.viewModelScope
+import androidx.room.Room
+import edu.nd.pmcburne.hello.data.*
+import edu.nd.pmcburne.hello.network.ApiService
+import kotlinx.coroutines.launch
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
-data class MainUIState(
-    val counterValue: Int
-)
+class MainViewModel : ViewModel() {
 
-class MainViewModel(
-    val initialCounterValue: Int = 0
-) : ViewModel() {
-    private val _uiState = MutableStateFlow(MainUIState(initialCounterValue))
-    val uiState: StateFlow<MainUIState> = _uiState.asStateFlow()
+    var selectedTag by mutableStateOf("core")
+    var tags by mutableStateOf(listOf<String>())
+    var locations by mutableStateOf(listOf<LocationEntity>())
 
-    fun incrementCounter() {
-        _uiState.update{ currentState ->
-            currentState.copy(counterValue = _uiState.value.counterValue + 1)
+    private lateinit var repository: Repository
+
+    fun init(context: Context) {
+        if (::repository.isInitialized) return
+
+        val db = Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "app_db"
+        ).build()
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://www.cs.virginia.edu/~wxt4gm/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val api = retrofit.create(ApiService::class.java)
+
+        repository = Repository(db.locationDao(), api)
+
+        loadData()
+    }
+
+    private fun loadData() {
+        viewModelScope.launch {
+            val fetched = repository.syncData()
+
+            tags = repository.getTags()
+            //Log.d("MainViewModel", "Available tags: $tags")
+
+            loadLocations()
         }
     }
 
-    fun decrementCounter() {
-        _uiState.update{ currentState ->
-            currentState.copy(counterValue = _uiState.value.counterValue - 1)
+    fun loadLocations() {
+        viewModelScope.launch {
+            locations = repository.getLocationsByTag(selectedTag)
         }
     }
 
-    fun resetCounter() {
-        _uiState.update { currentState ->
-            currentState.copy(counterValue = 0)
-        }
+    fun onTagSelected(tag: String) {
+        selectedTag = tag
+        loadLocations()
     }
-
-    val isDecrementEnabled: Boolean
-        get() = _uiState.value.counterValue > 0
-    val isResetEnabled: Boolean
-        get() = _uiState.value.counterValue > 0
 }
